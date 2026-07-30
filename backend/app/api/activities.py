@@ -17,7 +17,7 @@ def get_garmin_client():
     global garmin_client
     if garmin_client is None:
         token_dir = os.path.expanduser("~/.garminconnect")
-        
+         
         # Always instantiate with credentials so it can perform an initial login
         # if the token cache is empty or expired.
         garmin_client = Garmin(settings.GARMIN_EMAIL, settings.GARMIN_PASSWORD)
