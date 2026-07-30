@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     
     GARMIN_EMAIL: Optional[str] = None
     GARMIN_PASSWORD: Optional[str] = None
+    GARMIN_TOKENS_BASE64: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     API_KEY: Optional[str] = None
