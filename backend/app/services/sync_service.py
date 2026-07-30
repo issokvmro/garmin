@@ -16,7 +16,7 @@ async def run_sync():
     """
     logger.info("Starting Garmin sync job")
     
-    from app.api.activities import get_garmin_client
+    from app.api.activities_api import get_garmin_client
     client = get_garmin_client()
 
     try:

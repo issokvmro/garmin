@@ -10,7 +10,7 @@ sys.path.append("/Users/dharanedharran/Documents/garmin app/backend")
 from app.database import SessionLocal
 from app.models.daily_summary import DailySummary
 from app.models.user import User
-from app.api.activities import get_garmin_client
+from app.api.activities_api import get_garmin_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
