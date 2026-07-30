@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+alembic
+psycopg2-binary
+pydantic-settings
+google-genai
+mcp
+apscheduler
+python-dotenv
+garminconnect==0.3.7
