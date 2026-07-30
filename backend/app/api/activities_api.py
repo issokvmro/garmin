@@ -6,6 +6,9 @@ from app.config import settings
 import os
 import logging
 import json
+import base64
+import zipfile
+import io
 from garminconnect import Garmin
 
 router = APIRouter(prefix="/activities", tags=["Activities"])
@@ -18,6 +21,16 @@ def get_garmin_client():
     if garmin_client is None:
         token_dir = os.path.expanduser("~/.garminconnect")
         
+        if settings.GARMIN_TOKENS_BASE64 and not os.path.exists(token_dir):
+            try:
+                os.makedirs(token_dir, exist_ok=True)
+                zip_data = base64.b64decode(settings.GARMIN_TOKENS_BASE64)
+                with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_ref:
+                    zip_ref.extractall(token_dir)
+                logging.info("Restored Garmin tokens from base64 environment variable.")
+            except Exception as e:
+                logging.error(f"Failed to restore Garmin tokens from base64: {e}")
+                
         # Always instantiate with credentials so it can perform an initial login
         # if the token cache is empty or expired.
         garmin_client = Garmin(settings.GARMIN_EMAIL, settings.GARMIN_PASSWORD)
@@ -47,32 +60,19 @@ def list_activities(limit: int = 10, date_str: str = None, db: Session = Depends
 
 @router.get("/{activity_id}/comprehensive")
 def get_comprehensive_activity(activity_id: str, db: Session = Depends(get_db)):
-    """
-    Fetches raw, detailed information bypassing the database to get
-    the absolute maximum amount of data Garmin provides for a single activity.
-    """
     client = get_garmin_client()
     
     try:
-        # 1. Get the base activity summary
         summary = client.get_activity(activity_id)
-        
-        # 2. Get the time-series details (Charts and Polylines)
         details = client.get_activity_details(activity_id)
-        
-        # 3. Get splits (Laps)
         splits = client.get_activity_splits(activity_id)
-        
-        # 4. Get heart rate time zones
         hr_zones = client.get_activity_hr_in_timezones(activity_id)
         
-        # 5. Get power zones
         try:
             power_zones = client.get_activity_power_in_timezones(activity_id)
         except Exception:
             power_zones = None
             
-        # 6. Get gear
         try:
             gear = client.get_activity_gear(activity_id)
         except Exception:
