@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.activity import Activity
+from app.config import settings
 import os
 import logging
 import json
@@ -16,11 +17,13 @@ def get_garmin_client():
     global garmin_client
     if garmin_client is None:
         token_dir = os.path.expanduser("~/.garminconnect")
-        if not os.path.exists(token_dir):
-            raise HTTPException(status_code=500, detail="Garmin token store not found")
         
-        garmin_client = Garmin()
+        # Always instantiate with credentials so it can perform an initial login
+        # if the token cache is empty or expired.
+        garmin_client = Garmin(settings.GARMIN_EMAIL, settings.GARMIN_PASSWORD)
+        
         try:
+            os.makedirs(token_dir, exist_ok=True)
             garmin_client.login(tokenstore=token_dir)
         except Exception as e:
             logging.error(f"Failed to login to garminconnect: {e}")
