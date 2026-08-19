@@ -9,3 +9,5 @@ mcp
 apscheduler
 python-dotenv
 garminconnect==0.3.7
+pydantic-settings
+apscheduler
