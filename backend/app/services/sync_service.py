@@ -126,7 +126,15 @@ async def run_sync():
             db.commit()
         except Exception as e:
             logger.error(f"Failed to sync activities: {e}")
-        
+
+        # 3. Recompute Whoop-style scores (Recovery/Strain/Sleep/Stress/Whoop Age)
+        # now that fresh raw data has landed for today/yesterday.
+        try:
+            from app.services.score_pipeline import compute_and_store_score
+            for sync_date in dates_to_sync:
+                compute_and_store_score(db, sync_date)
+        except Exception as e:
+            logger.error(f"Failed to compute scores after sync: {e}")
 
         db.close()
         
@@ -203,6 +211,14 @@ async def run_historical_sync(start_date: date, end_date: date):
                 )
                 db.add(new_act)
         db.commit()
+
+        # Backfill scores across the whole synced range now that raw data exists.
+        try:
+            from app.services.score_pipeline import recompute_range
+            recompute_range(db, start_date, end_date)
+        except Exception as e:
+            logger.error(f"Failed to backfill scores after historical sync: {e}")
+
         db.close()
         logger.info("Garmin historical sync job completed successfully")
     except Exception as e:

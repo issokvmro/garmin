@@ -26,6 +26,8 @@ def get_garmin_client():
                 os.makedirs(token_dir, exist_ok=True)
                 zip_data = base64.b64decode(settings.GARMIN_TOKENS_BASE64)
                 with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_ref:
+                    # Extract to token_dir. The zip should contain just the files, or a folder.
+                    # Usually it's just the files.
                     zip_ref.extractall(token_dir)
                 logging.info("Restored Garmin tokens from base64 environment variable.")
             except Exception as e:
@@ -60,19 +62,32 @@ def list_activities(limit: int = 10, date_str: str = None, db: Session = Depends
 
 @router.get("/{activity_id}/comprehensive")
 def get_comprehensive_activity(activity_id: str, db: Session = Depends(get_db)):
+    """
+    Fetches raw, detailed information bypassing the database to get
+    the absolute maximum amount of data Garmin provides for a single activity.
+    """
     client = get_garmin_client()
     
     try:
+        # 1. Get the base activity summary
         summary = client.get_activity(activity_id)
+        
+        # 2. Get the time-series details (Charts and Polylines)
         details = client.get_activity_details(activity_id)
+        
+        # 3. Get splits (Laps)
         splits = client.get_activity_splits(activity_id)
+        
+        # 4. Get heart rate time zones
         hr_zones = client.get_activity_hr_in_timezones(activity_id)
         
+        # 5. Get power zones
         try:
             power_zones = client.get_activity_power_in_timezones(activity_id)
         except Exception:
             power_zones = None
             
+        # 6. Get gear
         try:
             gear = client.get_activity_gear(activity_id)
         except Exception:

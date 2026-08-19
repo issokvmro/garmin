@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
-from app.api import dashboard_router, activities_router, chat_router
+from app.api import dashboard_router, activities_router, chat_router, scores_router, profile_router
 from app.database import engine, Base
 from app.models import *
 from app.auth import verify_api_key
@@ -34,6 +34,8 @@ app.add_middleware(
 app.include_router(dashboard_router, prefix="/api", dependencies=[Depends(verify_api_key)])
 app.include_router(activities_router, prefix="/api", dependencies=[Depends(verify_api_key)])
 app.include_router(chat_router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(scores_router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(profile_router, prefix="/api", dependencies=[Depends(verify_api_key)])
 
 @app.get("/")
 def read_root():
