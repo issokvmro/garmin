@@ -13,38 +13,40 @@ from garminconnect import Garmin
 
 router = APIRouter(prefix="/activities", tags=["Activities"])
 
-# Global cache to prevent re-login on every request if using garminconnect directly
-garmin_client = None
+logger = logging.getLogger(__name__)
 
-def get_garmin_client():
-    global garmin_client
-    if garmin_client is None:
-        token_dir = os.path.expanduser("~/.garminconnect")
-        
-        if settings.GARMIN_TOKENS_BASE64 and not os.path.exists(token_dir):
-            try:
-                os.makedirs(token_dir, exist_ok=True)
-                zip_data = base64.b64decode(settings.GARMIN_TOKENS_BASE64)
-                with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_ref:
-                    # Extract to token_dir. The zip should contain just the files, or a folder.
-                    # Usually it's just the files.
-                    zip_ref.extractall(token_dir)
-                logging.info("Restored Garmin tokens from base64 environment variable.")
-            except Exception as e:
-                logging.error(f"Failed to restore Garmin tokens from base64: {e}")
-                
-        # Always instantiate with credentials so it can perform an initial login
-        # if the token cache is empty or expired.
-        garmin_client = Garmin(settings.GARMIN_EMAIL, settings.GARMIN_PASSWORD)
-        
+
+def get_garmin_client() -> Garmin:
+    """
+    Create a fresh Garmin client per-request.
+    This avoids the thread-safety issues of a global singleton when
+    running with multiple uvicorn workers.
+    """
+    token_dir = os.path.expanduser("~/.garminconnect")
+
+    if settings.GARMIN_TOKENS_BASE64 and not os.path.exists(token_dir):
         try:
             os.makedirs(token_dir, exist_ok=True)
-            garmin_client.login(tokenstore=token_dir)
+            zip_data = base64.b64decode(settings.GARMIN_TOKENS_BASE64)
+            with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_ref:
+                zip_ref.extractall(token_dir)
+            logger.info("Restored Garmin tokens from base64 environment variable.")
         except Exception as e:
-            logging.error(f"Failed to login to garminconnect: {e}")
-            raise HTTPException(status_code=500, detail="Failed to authenticate with Garmin")
-            
-    return garmin_client
+            logger.error(f"Failed to restore Garmin tokens from base64: {e}")
+
+    if not settings.GARMIN_EMAIL or not settings.GARMIN_PASSWORD:
+        raise HTTPException(status_code=500, detail="Garmin credentials not configured")
+
+    client = Garmin(settings.GARMIN_EMAIL, settings.GARMIN_PASSWORD)
+
+    try:
+        os.makedirs(token_dir, exist_ok=True)
+        client.login(tokenstore=token_dir)
+    except Exception as e:
+        logger.error(f"Failed to login to garminconnect: {e}")
+        raise HTTPException(status_code=500, detail="Failed to authenticate with Garmin")
+
+    return client
 
 @router.get("")
 def list_activities(limit: int = 10, date_str: str = None, db: Session = Depends(get_db)):
@@ -61,13 +63,11 @@ def list_activities(limit: int = 10, date_str: str = None, db: Session = Depends
     return activities
 
 @router.get("/{activity_id}/comprehensive")
-def get_comprehensive_activity(activity_id: str, db: Session = Depends(get_db)):
+def get_comprehensive_activity(activity_id: str, client: Garmin = Depends(get_garmin_client)):
     """
     Fetches raw, detailed information bypassing the database to get
     the absolute maximum amount of data Garmin provides for a single activity.
     """
-    client = get_garmin_client()
-    
     try:
         # 1. Get the base activity summary
         summary = client.get_activity(activity_id)

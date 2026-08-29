@@ -15,7 +15,7 @@ async def run_sync():
     Background job to sync Garmin data via the configured provider.
     """
     logger.info("Starting Garmin sync job")
-    
+
     from app.api.activities_api import get_garmin_client
     client = get_garmin_client()
 
